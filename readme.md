@@ -53,7 +53,7 @@ module.exports = {
 
 ```javascript
 // atoms/button/index.jsx
-import styles from 'style://';
+import styles from 'style://Pattern';
 import cx from 'classnames';
 
 const className = cx(styles.default, {
