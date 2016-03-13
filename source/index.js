@@ -1,5 +1,5 @@
 import path from 'path';
-import {find, merge} from 'lodash';
+import {find} from 'lodash';
 import {parse} from 'babylon';
 import generate from 'babel-generator';
 import traverse from 'babel-traverse';
@@ -94,7 +94,6 @@ const replaceStyleImports = (ast, tokensByFile) => {
 	});
 };
 
-
 const getStyleBaseName = pattern => {
 	const outFormat = find(pattern.outFormats, outFormat => outFormat.type === 'style');
 	if (!outFormat) {
@@ -120,7 +119,7 @@ const getStyleTokens = async (styleImports, file, application) => {
 					log: application.log
 				},
 				application.transforms,
-				{ outFormats: [path.extname(fileName).slice(1)] });
+				{outFormats: [path.extname(fileName).slice(1)]});
 			await stylePattern.read();
 			await stylePattern.transform();
 
@@ -139,7 +138,7 @@ const getStyleTokens = async (styleImports, file, application) => {
 				error.file = file.path;
 			}
 
-			return { styleImport, tokens };
+			return {styleImport, tokens};
 		})
 	);
 };
