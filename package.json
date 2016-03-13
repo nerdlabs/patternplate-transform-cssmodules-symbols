@@ -34,7 +34,7 @@
   },
   "homepage": "https://github.com/nerdlabs/patternplate-transform-cssmodules-symbols#readme",
   "keywords": [
-    "react",
+    "cssmodules",
     "patternplate",
     "transform",
     "pattern"
@@ -82,7 +82,9 @@
     "babel-generator": "6.6.5",
     "babel-traverse": "6.6.5",
     "babel-types": "6.6.5",
-    "babylon": "6.6.5",
-    "patternplate-transform-cssmodules": "../patternplate-transform-cssmodules"
+    "babylon": "6.6.5"
+  },
+  "peerDependencies": {
+    "patternplate-transform-cssmodules": "*"
   }
 }
