@@ -1,9 +1,9 @@
-import {merge} from 'lodash';
+import path from 'path';
+import {find, merge} from 'lodash';
 import {parse} from 'babylon';
 import generate from 'babel-generator';
 import traverse from 'babel-traverse';
 import {parse as parseURL} from 'url';
-import createTransform from '../../patternplate-transform-cssmodules';
 import * as t from 'babel-types';
 
 const babylonOptions = {
@@ -27,8 +27,11 @@ const babylonOptions = {
 
 const resolvePattern = (_name, file) => {
 	const name = _name === 'pattern' ? 'Pattern' : _name;
+	if (name === 'Pattern') {
+		return file.pattern;
+	}
 	if (name in file.dependencies) {
-		return file.dependencies[name];
+		return file.dependencies[name].pattern;
 	}
 	const error = new Error([
 		`Could not resolve dependency ${name}`,
@@ -38,66 +41,131 @@ const resolvePattern = (_name, file) => {
 		Object.keys(file.dependencies).join(', ')
 	].join(' '));
 	error.fileName = file.path;
-	error.errorFile = file.path;
+	error.file = file.path;
 	throw error;
 };
 
-const findStyleImports = ast => {
-	const styleImports = [];
+const isStyleImport = source => parseURL(source).protocol === 'style:';
+const isStaticRequire = node => node.callee.name === 'require' && t.isLiteral(node.arguments[0]);
 
-	// TODO: use babylon-ast-dependencies
+const replaceImportDeclaration = (path, tokens) => {
+	path.replaceWith(
+		t.variableDeclaration('const', path.node.specifiers.map(specifier => {
+			const value = t.isImportDefaultSpecifier(specifier) ?
+				tokens :
+				tokens[specifier.imported.name];
+
+			return t.variableDeclarator(specifier.local, t.valueToNode(value));
+		}))
+	);
+};
+
+const getStyleImports = ast => {
+	const styleImports = [];
 	traverse(ast, {
 		ImportDeclaration(path) {
-			if (parseURL(path.node.source.value).protocol === 'style:') {
-				styleImports.push(path);
+			if (isStyleImport(path.node.source.value)) {
+				styleImports.push(parseURL(path.node.source.value).hostname);
+			}
+		},
+		CallExpression(path) {
+			if (isStaticRequire(path.node) && isStyleImport(path.node.arguments[0])) {
+				styleImports.push(parseURL(path.node.arguments[0]).hostname);
 			}
 		}
 	});
-
 	return styleImports;
 };
 
-const replaceStyleImports = (styleImports, generateTokens) => {
-	styleImports.forEach(path => {
-		const tokens = generateTokens(parseURL(path.node.source.value).hostname);
-
-		path.replaceWith(
-			t.variableDeclaration('const', path.node.specifiers.map(specifier => {
-				const value = t.isImportDefaultSpecifier(specifier) ?
-					tokens :
-					tokens[specifier.imported.name];
-
-				return t.variableDeclarator(specifier.local, t.valueToNode(value));
-			}))
-		);
+const replaceStyleImports = (ast, tokensByFile) => {
+	traverse(ast, {
+		ImportDeclaration(path) {
+			if (isStyleImport(path.node.source.value)) {
+				const tokens = tokensByFile[parseURL(path.node.source.value).hostname];
+				replaceImportDeclaration(path, tokens);
+			}
+		},
+		CallExpression(path) {
+			if (isStaticRequire(path.node) && isStyleImport(path.node.arguments[0])) {
+				const tokens = tokensByFile[parseURL(path.node.arguments[0]).hostname];
+				path.replaceWith(t.valueToNode(tokens));
+			}
+		}
 	});
 };
 
-export default () => {
-	// const transform = createTransform();
 
+const getStyleBaseName = pattern => {
+	const outFormat = find(pattern.outFormats, outFormat => outFormat.type === 'style');
+	if (!outFormat) {
+		const error = new Error(`Pattern ${pattern.id} has no file matching format: 'style'`);
+
+		error.fileName = pattern.path;
+		error.file = pattern.path;
+	}
+	return `index.${outFormat.extension}`;
+};
+
+const getStyleTokens = async (styleImports, file, application) => {
+	return await Promise.all(
+		styleImports.map(async styleImport => {
+			const pattern = resolvePattern(styleImport, file);
+			const fileName = getStyleBaseName(pattern);
+			const stylePattern = await application.pattern.factory(
+				pattern.id,
+				pattern.base,
+				{
+					patterns: application.configuration.patterns,
+					transforms: application.configuration.transforms,
+					log: application.log
+				},
+				application.transforms,
+				{ outFormats: [path.extname(fileName).slice(1)] });
+			await stylePattern.read();
+			await stylePattern.transform();
+
+			const styleFile = stylePattern.files[fileName];
+			const tokens = styleFile.meta.cssmodules;
+
+			if (!tokens) {
+				const error = new Error([
+					'Could not find cssmodules meta data for',
+					`${styleFile.pattern.id}:${styleFile.baseName}`,
+					`imported by ${file.pattern.id}:${file.baseName}.`,
+					' Did you forget to turn on cssmodules transform?'
+				].join(''));
+
+				error.fileName = file.path;
+				error.file = file.path;
+			}
+
+			return { styleImport, tokens };
+		})
+	);
+};
+
+const transform = async (application, file) => {
+	const transformingDependencies = Promise.all(Object.values(file.dependencies)
+		.map(file => transform(application, file)));
+
+	const source = file.buffer.toString('utf-8');
+	const ast = parse(source, babylonOptions);
+
+	const styleImports = getStyleImports(ast);
+	const styleTokens = await getStyleTokens(styleImports, file, application);
+
+	replaceStyleImports(ast, styleTokens.reduce((tokensByFile, tokens) => {
+		tokensByFile[tokens.styleImport] = tokens.tokens;
+		return tokensByFile;
+	}, {}));
+
+	file.buffer = generate(ast.program).code;
+	await transformingDependencies;
+	return file;
+};
+
+export default application => {
 	return async file => {
-		const source = file.buffer.toString('utf-8');
-		const ast = parse(source, babylonOptions);
-
-		const styleImports = findStyleImports(ast);
-		replaceStyleImports(styleImports, localName => {
-			const pattern = resolvePattern(localName, file);
-			console.log(`generating tokens for "${localName}"`);
-			// TODO: call patternplate-transform-cssmodules and take tokens
-			// from file.meta.cssmodules
-			const tokens = {
-				foo: 'foo_23k1',
-				bar: 'bar_rks5',
-				baz: 'baz_2k52',
-				button: '_button_vahbc_6',
-				green: '_green_n2fe8_13'
-			};
-
-			return tokens;
-		});
-
-		file.buffer = generate(ast.program).code;
-		return file;
+		return transform(application, file);
 	};
 };
