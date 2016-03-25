@@ -12,8 +12,10 @@
     "prepare": "mkdir -p distribution",
     "prebuild": "parallelshell 'npm run test' 'npm run clean && npm run prepare'",
     "build": "babel source --out-dir distribution",
-    "test": "eslint source/**/*.js && conventional-changelog-lint --from=HEAD~1 && jsonlint-cli **/*.json",
+    "test": "ava",
+    "lint": "eslint source/**/*.js && conventional-changelog-lint --from=HEAD~1 && jsonlint-cli **/*.json",
     "watch": "npm run build -- --watch",
+    "watch-test": "npm run test -- --watch",
     "commit": "git-cz",
     "commitmsg": "conventional-changelog-lint -e",
     "changelog": "conventional-changelog --preset angular --infile changelog.md --same-file --output-unreleased",
@@ -61,12 +63,15 @@
     "MIT"
   ],
   "devDependencies": {
+    "ava": "0.13.0",
     "babel": "6.5.2",
     "babel-cli": "6.4.0",
     "babel-eslint": "4.1.8",
     "babel-plugin-add-module-exports": "0.1.2",
+    "babel-polyfill": "6.7.4",
     "babel-preset-es2015-node4": "2.0.3",
     "babel-preset-stage-0": "6.3.13",
+    "babel-register": "6.7.2",
     "commitizen": "2.7.2",
     "conventional-changelog-cli": "1.1.1",
     "conventional-changelog-lint": "0.3.1",
@@ -78,7 +83,8 @@
     "eslint-plugin-babel": "3.1.0",
     "husky": "0.10.2",
     "jsonlint-cli": "0.2.7",
-    "parallelshell": "2.0.0"
+    "parallelshell": "2.0.0",
+    "unindent": "2.0.0"
   },
   "dependencies": {
     "babel-generator": "6.6.5",
