@@ -11,16 +11,18 @@ export const emptyFile = {
 };
 
 export const plainFile = {
-	buffer: new Buffer('<div />')
+	buffer: new Buffer('<div />'),
+	dependencies: {}
 };
 
 export const statelessFile = {
 	buffer: new Buffer(unindent(`
-		export default (props) => {
-			return <div />;
-		};
+	export default (props) => {
+		return (<div />);
+	};
 	`)),
-	path: 'stateless/index.jsx'
+	path: 'stateless/index.jsx',
+	dependencies: {}
 };
 
 export const fullFile = {
@@ -33,5 +35,6 @@ export const fullFile = {
 		}
 	}
 	`)),
-	path: 'full/index.jsx'
+	path: 'full/index.jsx',
+	dependencies: {}
 };
