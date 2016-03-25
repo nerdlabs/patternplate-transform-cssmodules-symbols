@@ -25,8 +25,8 @@ const babylonOptions = {
 	]
 };
 
-const resolvePattern = (_name, file) => {
-	const name = _name === 'pattern' ? 'Pattern' : _name;
+const resolvePattern = (rawName, file) => {
+	const name = rawName === 'pattern' ? 'Pattern' : rawName;
 	if (name === 'Pattern') {
 		return file.pattern;
 	}
@@ -144,8 +144,8 @@ const getStyleTokens = async (styleImports, file, application) => {
 };
 
 const transform = async (application, file) => {
-	const transformingDependencies = Promise.all(Object.values(file.dependencies)
-		.map(file => transform(application, file)));
+	const transformingDependencies = Object.values(file.dependencies)
+		.map(file => transform(application, file));
 
 	const source = file.buffer.toString('utf-8');
 	const ast = parse(source, babylonOptions);
@@ -159,7 +159,21 @@ const transform = async (application, file) => {
 	}, {}));
 
 	file.buffer = generate(ast.program).code;
-	await transformingDependencies;
+
+	/**
+	 * For "plain" jsx files we are dealing with invalid js
+	 * because babel-generator appends a trailing semi-colon
+	 * to the jsx expression, causing subsequent babel parse
+	 * operations to fail, thus we have to remove it.
+	 * TODO: Remove this when when
+	 * - soft-deprecated plain jsx without default export
+	 * - hard-deprecated plain jsx without default export
+	 */
+	if (file.buffer[file.buffer.length - 1] === ';') {
+		file.buffer = file.buffer.slice(0, file.buffer.length - 1);
+	}
+
+	await Promise.all(transformingDependencies);
 	return file;
 };
 
