@@ -25,8 +25,8 @@ const babylonOptions = {
 	]
 };
 
-const resolvePattern = (rawName, file) => {
-	const name = rawName === 'pattern' ? 'Pattern' : rawName;
+const resolvePattern = (styleURL, file) => {
+	const name = styleURL.hostname === 'pattern' ? 'Pattern' : styleURL.hostname;
 	if (name === 'Pattern') {
 		return file.pattern;
 	}
@@ -45,7 +45,10 @@ const resolvePattern = (rawName, file) => {
 	throw error;
 };
 
-const isStyleImport = source => parseURL(source).protocol === 'style:';
+const isStyleImport = source => {
+	const protocol = parseURL(source).protocol;
+	return typeof protocol === 'string' && protocol.startsWith('style');
+};
 const isStaticRequire = node => node.callee.name === 'require' && t.isLiteral(node.arguments[0]);
 
 const replaceImportDeclaration = (path, tokens) => {
@@ -65,51 +68,52 @@ const getStyleImports = ast => {
 	traverse(ast, {
 		ImportDeclaration(path) {
 			if (isStyleImport(path.node.source.value)) {
-				styleImports.push(parseURL(path.node.source.value).hostname);
+				styleImports.push(parseURL(path.node.source.value));
 			}
 		},
 		CallExpression(path) {
-			if (isStaticRequire(path.node) && isStyleImport(path.node.arguments[0])) {
-				styleImports.push(parseURL(path.node.arguments[0]).hostname);
+			if (isStaticRequire(path.node) && isStyleImport(path.node.arguments[0].value)) {
+				styleImports.push(parseURL(path.node.arguments[0]));
 			}
 		}
 	});
 	return styleImports;
 };
 
-const replaceStyleImports = (ast, tokensByFile) => {
+const replaceStyleImports = (ast, tokensByIdentifier) => {
 	traverse(ast, {
 		ImportDeclaration(path) {
 			if (isStyleImport(path.node.source.value)) {
-				const tokens = tokensByFile[parseURL(path.node.source.value).hostname];
+				const tokens = tokensByIdentifier[path.node.source.value.toLowerCase()];
 				replaceImportDeclaration(path, tokens);
 			}
 		},
 		CallExpression(path) {
-			if (isStaticRequire(path.node) && isStyleImport(path.node.arguments[0])) {
-				const tokens = tokensByFile[parseURL(path.node.arguments[0]).hostname];
+			if (isStaticRequire(path.node) && isStyleImport(path.node.arguments[0].value)) {
+				const tokens = tokensByIdentifier[path.node.arguments[0].toLowerCase()];
 				path.replaceWith(t.valueToNode(tokens));
 			}
 		}
 	});
 };
 
-const getStyleBaseName = pattern => {
-	const outFormat = find(pattern.outFormats, outFormat => outFormat.type === 'style');
+const getStyleBaseName = (styleImport, pattern) => {
+	const [format, concern = 'index'] = styleImport.protocol.slice(0, -1).split('+');
+	const outFormat = find(pattern.outFormats, outFormat => outFormat.type === format);
 	if (!outFormat) {
-		const error = new Error(`Pattern ${pattern.id} has no file matching format: 'style'`);
+		const error = new Error(`Pattern ${pattern.id} has no file matching format: ${format}`);
 		error.fileName = pattern.path;
 		error.file = pattern.path;
 		throw error;
 	}
-	return `index.${outFormat.extension}`;
+	return `${concern}.${outFormat.extension}`;
 };
 
 const getStyleTokens = async (styleImports, file, application) => {
 	return await Promise.all(
 		styleImports.map(async styleImport => {
 			const pattern = resolvePattern(styleImport, file);
-			const fileName = getStyleBaseName(pattern);
+			const fileName = getStyleBaseName(styleImport, pattern);
 			const stylePattern = await application.pattern.factory(
 				pattern.id,
 				pattern.base,
@@ -119,7 +123,10 @@ const getStyleTokens = async (styleImports, file, application) => {
 					log: application.log
 				},
 				application.transforms,
-				{outFormats: [path.extname(fileName).slice(1)]});
+				{
+					outFormats: [path.extname(fileName).slice(1)],
+					baseNames: [path.basename(fileName, path.extname(fileName))]
+				});
 			await stylePattern.read();
 			await stylePattern.transform();
 
@@ -129,7 +136,7 @@ const getStyleTokens = async (styleImports, file, application) => {
 				const error = new Error(
 					[
 						`Pattern ${stylePattern.id} has no file ${fileName}`,
-						`requested by "${styleImport}" in ${file.pattern.id}:${file.name}.`,
+						`requested by "${styleImport.href}" in ${file.pattern.id}:${file.name}.`,
 						`Available files: ${Object.keys(stylePattern.files).join(', ')}`
 					].join(' ')
 				);
@@ -167,9 +174,9 @@ const transform = async (application, file) => {
 	const styleImports = getStyleImports(ast);
 	const styleTokens = await getStyleTokens(styleImports, file, application);
 
-	replaceStyleImports(ast, styleTokens.reduce((tokensByFile, tokens) => {
-		tokensByFile[tokens.styleImport] = tokens.tokens;
-		return tokensByFile;
+	replaceStyleImports(ast, styleTokens.reduce((tokensByIdentifier, tokens) => {
+		tokensByIdentifier[tokens.styleImport.href] = tokens.tokens;
+		return tokensByIdentifier;
 	}, {}));
 
 	file.buffer = generate(ast.program).code;
