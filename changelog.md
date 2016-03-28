@@ -1,3 +1,19 @@
+<a name="0.2.0"></a>
+# [0.2.0](https://github.com/nerdlabs/patternplate-transform-cssmodules-symbols/compare/v0.1.1...v0.2.0) (2016-03-28)
+
+
+### Bug Fixes
+
+* **detection:** configure stylePattern basename filters correctly ([b8c9b99](https://github.com/nerdlabs/patternplate-transform-cssmodules-symbols/commit/b8c9b99))
+* **detection:** throw if no style file is found ([0d95ea6](https://github.com/nerdlabs/patternplate-transform-cssmodules-symbols/commit/0d95ea6))
+* **errors:** log import identifier when no style file is found ([cadf14c](https://github.com/nerdlabs/patternplate-transform-cssmodules-symbols/commit/cadf14c))
+
+### Features
+
+* use concerns (demo/index) to resolve patterns ([57a2f9b](https://github.com/nerdlabs/patternplate-transform-cssmodules-symbols/commit/57a2f9b))
+
+
+
 <a name="0.1.1"></a>
 ## [0.1.1](https://github.com/nerdlabs/patternplate-transform-cssmodules-symbols/compare/v0.1.0...v0.1.1) (2016-03-25)
 
