@@ -72,7 +72,7 @@ const getStyleImports = ast => {
 			}
 		},
 		CallExpression(path) {
-			if (isStaticRequire(path.node) && isStyleImport(path.node.arguments[0])) {
+			if (isStaticRequire(path.node) && isStyleImport(path.node.arguments[0].value)) {
 				styleImports.push(parseURL(path.node.arguments[0]));
 			}
 		}
@@ -89,7 +89,7 @@ const replaceStyleImports = (ast, tokensByIdentifier) => {
 			}
 		},
 		CallExpression(path) {
-			if (isStaticRequire(path.node) && isStyleImport(path.node.arguments[0])) {
+			if (isStaticRequire(path.node) && isStyleImport(path.node.arguments[0].value)) {
 				const tokens = tokensByIdentifier[path.node.arguments[0].toLowerCase()];
 				path.replaceWith(t.valueToNode(tokens));
 			}
@@ -123,7 +123,10 @@ const getStyleTokens = async (styleImports, file, application) => {
 					log: application.log
 				},
 				application.transforms,
-				{outFormats: [path.extname(fileName).slice(1)]});
+				{
+					outFormats: [path.extname(fileName).slice(1)],
+					baseNames: [path.basename(fileName, path.extname(fileName))]
+				});
 			await stylePattern.read();
 			await stylePattern.transform();
 
