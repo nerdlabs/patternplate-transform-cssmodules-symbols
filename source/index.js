@@ -133,7 +133,7 @@ const getStyleTokens = async (styleImports, file, application) => {
 				const error = new Error(
 					[
 						`Pattern ${stylePattern.id} has no file ${fileName}`,
-						`requested by "${styleImport}" in ${file.pattern.id}:${file.name}.`,
+						`requested by "${styleImport.href}" in ${file.pattern.id}:${file.name}.`,
 						`Available files: ${Object.keys(stylePattern.files).join(', ')}`
 					].join(' ')
 				);
