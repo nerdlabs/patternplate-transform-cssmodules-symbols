@@ -98,9 +98,9 @@ const getStyleBaseName = pattern => {
 	const outFormat = find(pattern.outFormats, outFormat => outFormat.type === 'style');
 	if (!outFormat) {
 		const error = new Error(`Pattern ${pattern.id} has no file matching format: 'style'`);
-
 		error.fileName = pattern.path;
 		error.file = pattern.path;
+		throw error;
 	}
 	return `index.${outFormat.extension}`;
 };
@@ -124,6 +124,20 @@ const getStyleTokens = async (styleImports, file, application) => {
 			await stylePattern.transform();
 
 			const styleFile = stylePattern.files[fileName];
+
+			if (!styleFile) {
+				const error = new Error(
+					[
+						`Pattern ${stylePattern.id} has no file ${fileName}`,
+						`requested by "${styleImport}" in ${file.pattern.id}:${file.name}.`,
+						`Available files: ${Object.keys(stylePattern.files).join(', ')}`
+					].join(' ')
+				);
+				error.fileName = pattern.path;
+				error.file = pattern.path;
+				throw error;
+			}
+
 			const tokens = styleFile.meta.cssmodules;
 
 			if (!tokens) {
