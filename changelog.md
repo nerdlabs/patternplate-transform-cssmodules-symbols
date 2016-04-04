@@ -1,3 +1,13 @@
+<a name="0.2.1"></a>
+## [0.2.1](https://github.com/nerdlabs/patternplate-transform-cssmodules-symbols/compare/v0.2.0...v0.2.1) (2016-04-04)
+
+
+### Bug Fixes
+
+* **generation:** update file.mtime if an imported style file is fresher ([919c645](https://github.com/nerdlabs/patternplate-transform-cssmodules-symbols/commit/919c645))
+
+
+
 <a name="0.2.0"></a>
 # [0.2.0](https://github.com/nerdlabs/patternplate-transform-cssmodules-symbols/compare/v0.1.1...v0.2.0) (2016-03-28)
 
