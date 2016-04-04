@@ -7,12 +7,14 @@ export const application = {
 export const emptyFile = {
 	buffer: new Buffer(''),
 	path: 'empty/index.jsx',
-	dependencies: {}
+	dependencies: {},
+	fs: {node: {mtime: 0}}
 };
 
 export const plainFile = {
 	buffer: new Buffer('<div />'),
-	dependencies: {}
+	dependencies: {},
+	fs: {node: {mtime: 0}}
 };
 
 export const statelessFile = {
@@ -22,7 +24,8 @@ export const statelessFile = {
 	};
 	`)),
 	path: 'stateless/index.jsx',
-	dependencies: {}
+	dependencies: {},
+	fs: {node: {mtime: 0}}
 };
 
 export const fullFile = {
@@ -36,5 +39,6 @@ export const fullFile = {
 	}
 	`)),
 	path: 'full/index.jsx',
-	dependencies: {}
+	dependencies: {},
+	fs: {node: {mtime: 0}}
 };
