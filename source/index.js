@@ -159,7 +159,11 @@ const getStyleTokens = async (styleImports, file, application) => {
 				error.file = file.path;
 			}
 
-			return {styleImport, tokens};
+			return {
+				styleImport,
+				tokens,
+				mtime: styleFile.mtime || styleFile.fs.node.mtime
+			};
 		})
 	);
 };
@@ -170,9 +174,11 @@ const transform = async (application, file) => {
 
 	const source = file.buffer.toString('utf-8');
 	const ast = parse(source, babylonOptions);
+	const mtime = file.mtime || file.fs.node.mtime;
 
 	const styleImports = getStyleImports(ast);
 	const styleTokens = await getStyleTokens(styleImports, file, application);
+	const styleFileMtime = Math.max(...styleTokens.map(({mtime}) => mtime));
 
 	replaceStyleImports(ast, styleTokens.reduce((tokensByIdentifier, tokens) => {
 		tokensByIdentifier[tokens.styleImport.href] = tokens.tokens;
@@ -180,6 +186,7 @@ const transform = async (application, file) => {
 	}, {}));
 
 	file.buffer = generate(ast.program).code;
+	file.mtime = mtime > styleFileMtime ? mtime : styleFileMtime;
 
 	/**
 	 * For "plain" jsx files we are dealing with invalid js
